@@ -46,7 +46,8 @@ def generate_template_features(
                                 seq: str,
                                 all_atom_positions: np.ndarray,
                                 all_atom_masks: np.ndarray,
-                                residue_mask: list
+                                residue_mask: list,
+                                contig: str
                                 ) -> dict:
     '''
     Given the sequence and all atom positions and masks, generate the template features.
@@ -72,7 +73,22 @@ def generate_template_features(
         output_confidence_scores.append(-1)
 
     confidence_scores = []
-    for _ in seq: confidence_scores.append( 9 )
+    # Add tunable confidence score for based on contig
+    contigList = contig.split("/")
+    contigList = [x.replace("A","") for x in contigList]
+    contigRange = [list(range(int(x.split("-")[0]),int(x.split("-")[1])+1)) for x in contigList]
+    contigRange = [item for sublist in contigRange for item in sublist]
+    fullRange = list(range(contigRange[0],contigRange[-1]+1))
+    divIndex = [x - 1 for x in fullRange if x not in contigRange]
+    contigIndex = [x - 1 for x in fullRange if x in contigRange]
+    
+    for i, _ in enumerate(seq): 
+        if i in contigIndex:
+            confidence_scores.append( 1 )
+        elif i in divIndex:
+            confidence_scores.append( -1 )
+        else:
+            confidence_scores.append( 9 )
 
     for idx, i in enumerate(seq):
 

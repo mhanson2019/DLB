@@ -57,6 +57,10 @@ parser.add_argument( "-max_amide_dist", type=float, default=3.0, help='The maxim
 parser.add_argument( "-recycle", type=int, default=3, help='The number of AF2 recycles to perform (default: 3)' )
 parser.add_argument( "-no_initial_guess", action="store_true", default=False, help='When active, the model will not use an initial guess (default: False)' )
 parser.add_argument( "-force_monomer", action="store_true", default=False, help='When active, the model will predict the structure of a monomer (default: False)' )
+# AF2-mh specific arguments
+# mods for running with known binder folds
+parser.add_argument("-force_binder_template", action="store_true", default=False, help='When active, the model will template the binder (default: False)')
+parser.add_argument("-binder_contigs", type=str, default="", help='json file containing binder inpaint contigs (default: "")')
 
 args = parser.parse_args()
 
@@ -65,7 +69,7 @@ class FeatureHolder():
     This is a struct which holds the features for a single structure being run through the model
     '''
 
-    def __init__(self, pose, monomer, binderlen, tag):
+    def __init__(self, pose, monomer, binderlen, tag, contig):
         self.pose   = pose
         self.tag    = tag
         self.outtag = self.tag + '_af2pred'
@@ -74,6 +78,7 @@ class FeatureHolder():
         self.binderlen = binderlen
         self.monomer   = monomer
         
+        self.contig = contig
         # Pre model features
         self.initial_all_atom_positions = None
         self.initial_all_atom_masks = None
@@ -127,18 +132,25 @@ class AF2_runner():
         initial_guess = af2_util.parse_initial_guess(feat_holder.initial_all_atom_positions)
 
         # Determine which residues to template
+        # Modify this to add a templating for high confidence regions of the binder and all of the target
+        # this will be a module that effectively translates the contig into a mask
         if feat_holder.monomer:
             # For monomers predict all residues
             feat_holder.residue_mask = [False for i in range(len(feat_holder.seq))]
+        elif args.force_binder_template:
+            # For interfaces with common binder folds template both the binder and the target
+            feat_holder.residue_mask = [True for i in range(len(feat_holder.seq))]
         else:
             # For interfaces fix the target and predict the binder
             feat_holder.residue_mask = [int(i) > feat_holder.binderlen for i in range(len(feat_holder.seq))]
 
+        
         template_dict = af2_util.generate_template_features(
                                                             feat_holder.seq,
                                                             feat_holder.initial_all_atom_positions,
                                                             feat_holder.initial_all_atom_masks,
-                                                            feat_holder.residue_mask
+                                                            feat_holder.residue_mask,
+                                                            feat_holder.contig
                                                            )
         # Gather features
         feature_dict = {
@@ -264,11 +276,14 @@ class AF2_runner():
         # Start the timer
         self.t0 = timer()
 
-        # Load the structure
+        # Load the structure 
+        # how does monomer end up false?
         pose, monomer, binderlen, usetag = self.struct_manager.load_pose(tag)
 
+        contigs = self.struct_manager.contigDict.get(usetag.split("_")[1], None)
+        inpaint_contig = contigs['inpaint']
         # Store the pose in the feature holder
-        feat_holder = FeatureHolder(pose, monomer, binderlen, usetag)
+        feat_holder = FeatureHolder(pose, monomer, binderlen, usetag, inpaint_contig)
 
         print(f'Processing struct with tag: {feat_holder.tag}')
 
@@ -304,6 +319,13 @@ class StructManager():
 
         self.score_fn = args.scorefilename
 
+        # read json file containing binder inpaint contigs
+        if args.binder_contigs == "":
+            self.contigDict = {}
+        else:
+            import json
+            self.contigDict = json.load(open(args.binder_contigs, 'r'))
+                
         # Generate a random unique temporary filename
         self.tmp_fn = f'tmp_{uuid.uuid4()}.pdb'
 
@@ -337,7 +359,7 @@ class StructManager():
                     self.runlist = set([line.strip() for line in f])
 
                     # Filter the struct iterator to only include those in the runlist
-                    self.struct_iterator = [struct for struct in self.struct_iterator if '.'.join(os.path.basename(struct).split('.')[:-1]) in self.runlist]
+                    self.struct_iterator = [struct for struct in self.struct_iterator if os.path.basename(struct) in self.runlist]
 
                     print(f'After filtering by runlist, {len(self.struct_iterator)} structures remain')
 
