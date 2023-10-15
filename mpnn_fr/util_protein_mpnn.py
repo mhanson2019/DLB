@@ -230,7 +230,7 @@ def init_seq_optimize_model(device, hidden_dim, num_layers, backbone_noise, num_
 
    return model
 
-def set_default_args( seq_per_target, omit_AAs=['X'] ):
+def set_default_args( seq_per_target, omit_AAs=['X'], pssm_dict=None, pssmBF=False, pssmMulti=0 ):
 
     #global DECODING_ORDER
     #DECODING_ORDER = decoding_order
@@ -248,7 +248,9 @@ def set_default_args( seq_per_target, omit_AAs=['X'] ):
     # Per-residue omit AA option
     retval['omit_AA_dict'] = None
 
-    retval['pssm_dict'] = None
+    retval['pssm_dict'] = pssm_dict
+    retval['pssmBF'] = pssmBF
+    retval['pssm_multi'] = pssmMulti
     retval['tied_positions_dict'] = None
 
     # Per-residue bias option
@@ -276,6 +278,8 @@ def generate_sequences( model, device, feature_dict, arg_dict, masked_chains, vi
         )
 
         pssm_threshold = 0 # Nate is hardcoding this
+        # Mike added
+        pssmBF = arg_dict['pssmBF']
         pssm_log_odds_mask = (pssm_log_odds_all > pssm_threshold).float() #1.0 for true, 0.0 for false
 
         randn_1 = torch.randn(chain_M.shape, device=X.device)
@@ -302,10 +306,10 @@ def generate_sequences( model, device, feature_dict, arg_dict, masked_chains, vi
                     omit_AA_mask=omit_AA_mask,
                     pssm_coef=pssm_coef,
                     pssm_bias=pssm_bias,
-                    pssm_multi=0,
+                    pssm_multi=arg_dict['pssm_multi'],
                     pssm_log_odds_flag=False,
                     pssm_log_odds_mask=pssm_log_odds_mask,
-                    pssm_bias_flag=False,
+                    pssm_bias_flag=pssmBF,
                     bias_by_res=bias_by_res_all
             )
 

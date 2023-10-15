@@ -69,6 +69,9 @@ parser.add_argument( "-protein_features", type=str, default='full', help='What t
 parser.add_argument( "-omit_AAs", type=str, default='CX', help='A string of all residue types (one letter case-insensitive) that you would not like to use for design. Letters not corresponding to residue types will be ignored (default: CX)' )
 parser.add_argument( "-bias_AA_jsonl", type=str, default='', help='The path to a JSON file containing a dictionary mapping residue one-letter names to the bias for that residue eg. {A: -1.1, F: 0.7} (default: ''; no bias)' )
 parser.add_argument( "-num_connections", type=int, default=48, help='Number of neighbors each residue is connected to. Do not mess around with this argument unless you have a specific set of ProteinMPNN weights which expects a different number of connections. (default: 48)' )
+# MH added pssm bias options
+parser.add_argument( "-rfdDict_json", type=str, default='', help='dictionary file output from bespoke RFD runs controlling length of diversity regions includes contigs, inpaints and pssm dictionaries' )
+parser.add_argument("-pssmMulti", type=int, default=0, help='multiplier for pssm bias (default: 0)')
 
 args = parser.parse_args( sys.argv[1:] )
 
@@ -116,6 +119,8 @@ class sample_features():
 
         for resi, mut_to in enumerate( binder_seq ):
             resi += 1 # 1 indexing
+            # MH added to handle X in binder_seq
+            if mut_to == 'X': mut_to = 'G'
             name3 = mpnn_util.aa_1_3[ mut_to ]
             new_res = core.conformation.ResidueFactory.create_residue( rsd_set.name_map( name3 ) )
             self.pose.replace_residue( resi, new_res, True )
@@ -154,6 +159,17 @@ class ProteinMPNN_runner():
         self.seqs_per_struct = args.seqs_per_struct
         self.omit_AAs = [ letter for letter in args.omit_AAs.upper() if letter in list(alphabet) ]
 
+        # Parse rfdDict from json if not none and if it exists
+        if os.path.isfile(args.rfdDict_json):
+            with open(args.rfdDict_json, "r") as f:
+                self._rfdDict = json.load(f)
+            self._pssmBF = True
+            self._pssmMulti = args.pssmMulti
+        else: 
+            self._rfdDict = None
+            self._pssmBF = False
+            self._pssmMulti = 0
+            
         # Parse AA bias settings from json
         if os.path.isfile(args.bias_AA_jsonl):
             print(f'Found AA bias json file at {args.bias_AA_jsonl}')
@@ -202,7 +218,25 @@ class ProteinMPNN_runner():
 
         os.remove(pdbfile)
 
-        arg_dict = mpnn_util.set_default_args( self.seqs_per_struct, omit_AAs=self.omit_AAs )
+        # extract pssm_dict from rfdDict if it exists
+        # use pdbfile name to search keys in rfdDict
+        if self._rfdDict is not None:
+            for key in self._rfdDict.keys():
+                if key in sample_feats.tag:
+                    pdb_dict = self._rfdDict[key]['diversity']
+                    break
+            for key in pdb_dict.keys():
+                if key in sample_feats.tag:
+                    temp_dict = pdb_dict[key]
+                    break
+            if 'contig' in temp_dict.keys():
+                temp_dict.pop('contig')
+            # put the pssm_dict under the key 'temp'
+            pssm_dict = {}
+            pssm_dict['temp'] = temp_dict
+        else:
+            pssm_dict = None
+        arg_dict = mpnn_util.set_default_args( self.seqs_per_struct, omit_AAs=self.omit_AAs, pssm_dict=pssm_dict, pssmBF=self._pssmBF, pssmMulti=self._pssmMulti )
         arg_dict['temperature'] = self.temperature
 
         masked_chains  = sample_feats.chains[:-1]
@@ -344,7 +378,7 @@ class StructManager():
                     self.runlist = set([line.strip() for line in f])
 
                     # Filter the struct iterator to only include those in the runlist
-                    self.struct_iterator = [struct for struct in self.struct_iterator if os.path.basename(struct).split('.')[0] in self.runlist]
+                    self.struct_iterator = [struct for struct in self.struct_iterator if os.path.basename(struct) in self.runlist]
 
                     print(f'After filtering by runlist, {len(self.struct_iterator)} structures remain')
 
@@ -381,7 +415,7 @@ class StructManager():
                 continue
 
             yield struct
-
+    
     def dump_pose(self, pose, tag):
         '''
         Dump this pose to either a silent file or a pdb file depending on the input arguments
