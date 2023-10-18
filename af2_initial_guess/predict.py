@@ -60,7 +60,7 @@ parser.add_argument( "-force_monomer", action="store_true", default=False, help=
 # AF2-mh specific arguments
 # mods for running with known binder folds
 parser.add_argument("-force_binder_template", action="store_true", default=False, help='When active, the model will template the binder (default: False)')
-parser.add_argument("-binder_contigs", type=str, default="", help='json file containing binder inpaint contigs (default: "")')
+parser.add_argument("-rfdDict_json", type=str, default="", help='json file containing binder inpaint contigs (default: "")')
 
 args = parser.parse_args()
 
@@ -320,11 +320,12 @@ class StructManager():
         self.score_fn = args.scorefilename
 
         # read json file containing binder inpaint contigs
-        if args.binder_contigs == "":
+        if args.rfdDict_json == "":
             self.contigDict = {}
         else:
             import json
-            self.contigDict = json.load(open(args.binder_contigs, 'r'))
+            rfdDict = json.load(open(args.rfdDict_json, 'r'))
+            self.contigDict = rfdDict
                 
         # Generate a random unique temporary filename
         self.tmp_fn = f'tmp_{uuid.uuid4()}.pdb'

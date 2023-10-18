@@ -9,3 +9,15 @@ af2_initial_guess/__pycache__
 test/
 mpnn_fr/ProteinMPNN/
 mpnn_fr/__pycache__
+check.point*
+model_weights
+*.pyc
+AFscore
+out.sc
+*.pdb
+
+af2_initial_guess/alphafold/__pycache__/*
+
+af2_initial_guess/alphafold/__pycache__/__init__.*
+
+.gitignore
