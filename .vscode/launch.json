@@ -1,0 +1,53 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "DLB test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${fileDirname}",
+            "console": "integratedTerminal",
+            "args": [
+                "-pdbdir", "/home/mhanson/tmp/contigPPI/20231014/RFD",
+                "-outpdbdir", "/home/mhanson/tmp/contigPPI/20231014/DLB",
+                "-rfdDict_json", "/home/mhanson/tmp/contigPPI/20231014/rfdDict.json",
+                "-pssmMulti", "1",
+                "-seqs_per_struct", "2",
+                "-debug",
+                "-relax_cycles", "0"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "AF test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${fileDirname}",
+            "console": "integratedTerminal",
+            "args": [
+                "-pdbdir", "/home/mhanson/tmp/contigPPI/20231016/DLB",
+                "-runlist", "/home/mhanson/tmp/contigPPI/20231016/pdbList.txt",
+                "-outpdbdir", "/home/mhanson/tmp/contigPPI/20231016/AF",
+                "-scorefilename", "/home/mhanson/tmp/contigPPI/20231016/AFscore.txt",
+                "-force_binder_template",
+                "-debug",
+                "-rfdDict_json", "/home/mhanson/tmp/contigPPI/20231016/rfdDict.json"
+            ],
+            "justMyCode": true
+        }
+    ]
+}
