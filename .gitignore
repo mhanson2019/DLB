@@ -20,4 +20,6 @@ af2_initial_guess/alphafold/__pycache__/*
 
 af2_initial_guess/alphafold/__pycache__/__init__.*
 
-.gitignore
+af2_initial_guess/alphafold/__pycache__/common.*
+mpnn_fr/ProteinMPNN
+*cpython*      
