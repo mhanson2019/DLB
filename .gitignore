@@ -1,5 +1,5 @@
 test/
-mpnn_fr/ProteinMPNN/
+mpnn_fr/ProteinMPNN
 check.point*
 model_weights
 *.pyc
